@@ -17,7 +17,8 @@ import numpy as np
 bridge = CvBridge() #Bridge converts the image from ros to openCV
 
 name = "Object!"
-
+# 166 55 46
+# 192 255 246
 lower= np.array([132,48,33],np.uint8) # Array (H,S,V) for the lower threshold bound of the HSV image
 upper= np.array([218,176,255],np.uint8) # Array (H,S,V) for the upper threshold bound of the HSV image
 error = np.array([13,100,100],np.uint8) # Array of error widths to create the upper and lower threshold bounds above.
@@ -39,7 +40,6 @@ minObjectArea = 50                 # Min number of pixels for an object to be re
 start = False                       # Set to true when first image is acquired and will start the program.
 
 update = False                      # True - When a new point has been found and can be published. False - Otherwise.
-
 
 ###################################
 ## Function Declaration
@@ -91,7 +91,7 @@ def drawCOM(frame, x, y, name):
 def findObjects(binaryMatrix):
     #Finds the location of the desired object in the image.
     output = []
-    trash, contours, hierarchy = cv2.findContours(binaryMatrix, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) # Contours the image to find blobs of the same color   
+    contours, hierarchy = cv2.findContours(binaryMatrix, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) # Contours the image to find blobs of the same color   
     cont = sorted(contours, key = cv2.contourArea, reverse = True)[:maxObjects]                   # Sorts the blobs by size (Largest to smallest) 
 
     # Find the center of mass of the blob if there are any
@@ -138,7 +138,7 @@ def get_image(CompressedImage):
 
     # height and width of the image to pass along to the PID controller as the reference point.
     height, width = imgBGR.shape[:2]
-    
+    # print(height, width)
     # Image used to draw things on!
     imgTrack = imgBGR.copy()
     
@@ -155,22 +155,19 @@ def get_image(CompressedImage):
     imgMorphOps = morphOps(mask, morphOpSize)
 
     centers = findObjects(imgMorphOps)
-
-
+    
     # Not always, the houghCircles function finds circle, so a None inspection is made
     if centers:
         for i in centers:
-
             # The x position of the center of the object, the width of the object, and the width of the image.
             p = Point(i[0],i[1],width)
-
             # Bool to indicate the need to publish new information
             update = True
     else:
         #If no object was found, sends bogus numbers.
         p = Point(99999,99999,width)
         update = True
-
+    
     # Once the first image has been processed set start to True to display.
     start = True
 
@@ -241,190 +238,9 @@ while not rospy.is_shutdown():
         # If a new point was found, then update is True and the point is publish
         if update:
             pub.publish(p)
+            print(p)
+            update = False
 	    #### Create CompressedIamge and Publish ####
         imgTrackPub=bridge.cv2_to_compressed_imgmsg(imgTrack)
         pubDebug.publish(imgTrackPub)
-        update = False
-
-        #rate.sleep()
-
-        #User's options to interact with the software
-        k = cv2.waitKey(10)
-
-        if k == 49: #number 1
-            #Decrease the Hue error
-            error[0] = error[0] - 1
-            if (error[0] < 0):
-                error[0] = 0
-            k = 0
-            rospy.loginfo("Color Error: %d",error[0])    
-        elif k == 50: #number 2
-            #Increase the Hue error
-            error[0] = error[0] + 1
-            if (error[0] > 50):
-                error[0] = 50
-            k = 0
-            rospy.loginfo("Color Error: %d",error[0])
-        elif k == 51: #numer 3
-            #Decrease the morphOp kernel size
-            morphOpSize = morphOpSize - 2
-            if morphOpSize < 1:
-                morphOpSize = 1
-            k = 0
-            rospy.loginfo("Kernel size for close and open: %d",morphOpSize)
-
-        elif k == 52: #number 4
-            #Increase the morphOp kernel size
-            morphOpSize = morphOpSize + 2
-            k = 0
-            rospy.loginfo("Kernel size for close and open: %d",morphOpSize)
-        elif k == 53: #numer 5
-            #Decrease the blur size
-            blurSize = blurSize - 2
-            if blurSize < 1:
-                blurSize = 1
-            k = 0
-            rospy.loginfo("Bluring kernel size: %d",blurSize)
-
-        elif k == 54: #number 6
-            #Increase the blur size
-            blurSize = blurSize + 2
-            k = 0
-            rospy.loginfo("Bluring kernel size: %d",blurSize)
-
-        elif k == 55: #number 7
-            #Decrease the min pixel area of the tracked object
-            minObjectArea = minObjectArea - 1
-            if minObjectArea < 1:
-                minObjectArea = 1
-            k = 0
-            rospy.loginfo("Min object pixel area: %d",blurSize)
-
-        elif k == 56: #number 8
-            #Increase the min pixel area of the tracked object
-            minObjectArea = minObjectArea + 1
-            k = 0
-            rospy.loginfo("Min object pixel area: %d",blurSize)
-
-
-
-# #!/usr/bin/env python
-# from glob import glob
-# import rospy
-# from sensor_msgs.msg import CompressedImage
-# from geometry_msgs.msg import Point
-# import cv2
-# import numpy as np
-# from cv_bridge import CvBridge
-
-# bridge = CvBridge()
-# lower = np.array([132, 48, 33], np.uint8) 
-# upper = np.array([218, 176, 255], np.unit8)
-# titleTracker = "Color Tracker"      # Debugging Image Title
-# titleOriginal = "Original Image"    # Debugging Image Title
-# titleMask = "Mask Image"            # Debugging Image Title
-# start = False
-# debug = True
-# width = 360
-
-# def get_image(CompressedImage):
-#     # The "CompressedImage" is transformed to a color image in BGR space and is store in "imgBGR"
-#     global imgBGR
-#     global imgHSV
-#     global mask
-#     global p
-#     imgBGR = bridge.compressed_imgmsg_to_cv2(CompressedImage, "bgr8")
-    
-#     # height and width of the image to pass along to the PID controller as the reference point.
-#     height, width = imgBGR.shape[:2]
-    
-#     blurred = cv2.GaussianBlur(imgBGR, (11, 11), 0) 
-#     imgHSV = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-#     mask = cv2.inRange(imgHSV, lower, upper)
-#     mask = cv2.erode(mask, None, iterations=2)
-#     mask = cv2.dilate(mask, None, iterations=2) 
-#     circles = cv2.HoughCircles(mask,cv2.HOUGH_GRADIENT,1,1000,
-#                             param1=300,param2=5,minRadius=50,maxRadius=0)
-#     if circles is not None:
-#         circles = np.uint16(np.around(circles))    
-#         for i in circles[0,:]:
-#             p = Point(i[0],i[1],width)
-#     else:
-#         p = Point(99999,99999,width)
-#     start = True
-
-# def Init():
-#     rospy.Subscriber("/raspicam_node/image/compressed",CompressedImage, get_image, 
-# queue_size=1, buff_size=2**24)
-#     #Initializate the node and gives a name, in this case, 'find_ball'
-#     rospy.init_node('find_object', anonymous=True)
-#     #Create a publisher that will be publishing Geometric message Points
-#     global pub
-#     pub = rospy.Publisher('imageLocation', Point, queue_size=10)
-#     #Create a debug publisher for image
-#     global pubDebug
-#     pubDebug = rospy.Publisher('trackImage/compressed', CompressedImage, 
-# queue_size=1)
-
-# ###################################
-# ## MAIN
-# ###################################
-# if __name__ == '__main__':
-#     try:
-#         Init()
-#     except rospy.ROSInterruptException:
-#         pass
-
-# if(debug):
-#     cv2.namedWindow(titleMask, cv2.WINDOW_AUTOSIZE )
-#     cv2.moveWindow(titleMask, 1240, 50)
-#     cv2.namedWindow(titleOriginal, cv2.WINDOW_AUTOSIZE )
-#     cv2.moveWindow(titleOriginal, 50, 50)
-
-# while not rospy.is_shutdown():
-#     # This is the infinite loop that keep the program running
-    
-#     # If the first image arrived, the start = True
-#     if start:
-
-#         # Display the image
-#         if debug:
-#             cv2.imshow(titleOriginal,imgBGR)
-#             cv2.imshow(titleMask,mask)
-
-#         # If a new point was found, then update is True and the point is publish
-#         if update:
-#             pub.publish(p)
-#             #### Create CompressedIamge and Publish ####
-#             imgTrackPub=bridge.cv2_to_compressed_imgmsg(imgBGR)
-#             pubDebug.publish(imgTrackPub)
-#             update = False
-
-# # def object_finder():
-# #     # In ROS, nodes are uniquely named. If two nodes with the same
-# #     # name are launched, the previous one is kicked off. The
-# #     # anonymous=True flag means that rospy will choose a unique
-# #     # name for our 'listener' node so that multiple listeners can
-# #     # run simultaneously.
-# #     rospy.init_node('object_finder', anonymous=True)
-# #     pub = rospy.Publisher('/center', Point, queue_size=1)
-# #     while not rospy.is_shutdown:
-# #         frame = rospy.Subscriber("/raspicam_node/image/compressed",CompressedImage,callback)
-# #         lower = (132, 48, 33) 
-# #         upper = (218, 176, 255)
-# #         blurred = cv2.GaussianBlur(frame, (11, 11), 0) 
-# #         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-# #         mask = cv2.inRange(hsv, lower, upper)
-# #         mask = cv2.erode(mask, None, iterations=2)
-# #         mask = cv2.dilate(mask, None, iterations=2) 
-# #         circles = cv2.HoughCircles(mask,cv2.HOUGH_GRADIENT,1,1000,
-# #                                 param1=300,param2=5,minRadius=50,maxRadius=0)
-# #         if circles is not None:
-# #             circles = np.uint16(np.around(circles))    
-# #             for i in circles[0,:]:
-# #                 pub.publish(Point(i[0], i[1], 0))
-
-# #     # Do I want to publish the image?
-
-# # if __name__ == '__main__':
-# #     object_finder()
+        # update = False
